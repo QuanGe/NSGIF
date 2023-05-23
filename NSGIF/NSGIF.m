@@ -13,13 +13,7 @@
 #define timeInterval @(600)
 #define tolerance    @(0.01)
 
-typedef NS_ENUM(NSInteger, GIFSize) {
-    GIFSizeVeryLow  = 2,
-    GIFSizeLow      = 3,
-    GIFSizeMedium   = 5,
-    GIFSizeHigh     = 7,
-    GIFSizeOriginal = 10
-};
+
 
 #pragma mark - Public methods
 
@@ -125,6 +119,50 @@ typedef NS_ENUM(NSInteger, GIFSize) {
         completionBlock(gifURL);
     });
     
+}
+
++ (void)createGIFfromURL:(NSURL*)videoURL withFrameCount:(int)frameCount delayTime:(float)delayTime gifSize:(GIFSize)gifSize loopCount:(int)loopCount  completion:(void(^)(NSURL *GifURL))completionBlock {
+    // Convert the video at the given URL to a GIF, and return the GIF's URL if it was created.
+    // The frames are spaced evenly over the video, and each has the same duration.
+    // delayTime is the amount of time for each frame in the GIF.
+    // loopCount is the number of times the GIF will repeat. Defaults to 0, which means repeat infinitely.
+    
+    // Create properties dictionaries
+    NSDictionary *fileProperties = [self filePropertiesWithLoopCount:loopCount];
+    NSDictionary *frameProperties = [self framePropertiesWithDelayTime:delayTime];
+    
+    AVURLAsset *asset = [AVURLAsset assetWithURL:videoURL];
+
+    // Get the length of the video in seconds
+    float videoLength = (float)asset.duration.value/asset.duration.timescale;
+    
+    // How far along the video track we want to move, in seconds.
+    float increment = (float)videoLength/frameCount;
+    
+    // Add frames to the buffer
+    NSMutableArray *timePoints = [NSMutableArray array];
+    for (int currentFrame = 0; currentFrame<frameCount; ++currentFrame) {
+        float seconds = (float)increment * currentFrame;
+        CMTime time = CMTimeMakeWithSeconds(seconds, [timeInterval intValue]);
+        [timePoints addObject:[NSValue valueWithCMTime:time]];
+    }
+
+    // Prepare group for firing completion block
+    dispatch_group_t gifQueue = dispatch_group_create();
+    dispatch_group_enter(gifQueue);
+    
+    __block NSURL *gifURL;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        gifURL = [self createGIFforTimePoints:timePoints fromURL:videoURL fileProperties:fileProperties frameProperties:frameProperties frameCount:frameCount gifSize:gifSize];
+
+        dispatch_group_leave(gifQueue);
+    });
+    
+    dispatch_group_notify(gifQueue, dispatch_get_main_queue(), ^{
+        // Return GIF URL
+        completionBlock(gifURL);
+    });
 }
 
 #pragma mark - Base methods
