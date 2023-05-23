@@ -9,7 +9,7 @@
 @implementation NSGIF
 
 // Declare constants
-#define fileName     @"NSGIF"
+#define fileName     @"GIF-Zipym"
 #define timeInterval @(600)
 #define tolerance    @(0.01)
 
